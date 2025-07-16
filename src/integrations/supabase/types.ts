@@ -14,7 +14,189 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          document_id: string
+          id: string
+          ip_address: unknown | null
+          signer_email: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          document_id: string
+          id?: string
+          ip_address?: unknown | null
+          signer_email?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          document_id?: string
+          id?: string
+          ip_address?: unknown | null
+          signer_email?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_logs_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_shares: {
+        Row: {
+          created_at: string
+          document_id: string
+          expires_at: string
+          id: string
+          signer_email: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          expires_at: string
+          id?: string
+          signer_email: string
+          token: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          expires_at?: string
+          id?: string
+          signer_email?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_shares_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      documents: {
+        Row: {
+          created_at: string
+          description: string | null
+          file_name: string
+          file_path: string
+          file_size: number
+          id: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          file_name: string
+          file_path: string
+          file_size: number
+          id?: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number
+          id?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      signatures: {
+        Row: {
+          created_at: string
+          document_id: string
+          height: number
+          id: string
+          page_number: number
+          rejection_reason: string | null
+          signature_data: string | null
+          signed_at: string | null
+          signer_email: string
+          signer_name: string | null
+          status: string
+          updated_at: string
+          width: number
+          x_position: number
+          y_position: number
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          height?: number
+          id?: string
+          page_number?: number
+          rejection_reason?: string | null
+          signature_data?: string | null
+          signed_at?: string | null
+          signer_email: string
+          signer_name?: string | null
+          status?: string
+          updated_at?: string
+          width?: number
+          x_position: number
+          y_position: number
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          height?: number
+          id?: string
+          page_number?: number
+          rejection_reason?: string | null
+          signature_data?: string | null
+          signed_at?: string | null
+          signer_email?: string
+          signer_name?: string | null
+          status?: string
+          updated_at?: string
+          width?: number
+          x_position?: number
+          y_position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signatures_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
