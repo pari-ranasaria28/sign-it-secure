@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Share, Plus, Eye, Download } from "lucide-react";
+import { ArrowLeft, Share, Plus, Eye, Download, Send } from "lucide-react";
 import { PDFViewer } from "@/components/pdf/PDFViewer";
 import { SignatureField } from "@/components/pdf/SignatureField";
 
@@ -163,6 +163,58 @@ export function DocumentViewer({ document, onBack, onUpdate }: DocumentViewerPro
     }
   };
 
+  const generateSigningLink = async (signature: Signature) => {
+    try {
+      setLoading(true);
+      
+      // Generate unique token
+      const token = crypto.randomUUID();
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 30); // 30 days expiry
+
+      // Create document share
+      const { error } = await supabase
+        .from('document_shares')
+        .insert({
+          document_id: document.id,
+          signer_email: signature.signer_email,
+          token: token,
+          expires_at: expiresAt.toISOString(),
+        });
+
+      if (error) throw error;
+
+      // Create audit log
+      await supabase
+        .from('audit_logs')
+        .insert({
+          document_id: document.id,
+          action: 'signing_link_generated',
+          signer_email: signature.signer_email,
+          details: { signature_id: signature.id }
+        });
+
+      // Copy link to clipboard
+      const signingUrl = `${window.location.origin}/sign/${token}`;
+      await navigator.clipboard.writeText(signingUrl);
+      
+      toast({
+        title: "Success",
+        description: "Signing link copied to clipboard.",
+      });
+
+    } catch (err: any) {
+      console.error('Error generating signing link:', err);
+      toast({
+        title: "Error",
+        description: "Failed to generate signing link. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const downloadDocument = async () => {
     try {
       const { data, error } = await supabase.storage
@@ -296,27 +348,39 @@ export function DocumentViewer({ document, onBack, onUpdate }: DocumentViewerPro
                       Add First Signer
                     </Button>
                   </div>
-                ) : (
-                  signatures.map((signature) => (
-                    <div key={signature.id} className="border rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="font-medium text-sm">{signature.signer_name}</p>
-                        <span className={`text-xs font-medium capitalize ${getStatusColor(signature.status)}`}>
-                          {signature.status}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">{signature.signer_email}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Page {signature.page_number} • Position ({Math.round(signature.x_position)}, {Math.round(signature.y_position)})
-                      </p>
-                      {signature.signed_at && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Signed: {new Date(signature.signed_at).toLocaleDateString()}
-                        </p>
-                      )}
-                    </div>
-                  ))
-                )}
+                 ) : (
+                   signatures.map((signature) => (
+                     <div key={signature.id} className="border rounded-lg p-3">
+                       <div className="flex items-center justify-between mb-2">
+                         <p className="font-medium text-sm">{signature.signer_name}</p>
+                         <span className={`text-xs font-medium capitalize ${getStatusColor(signature.status)}`}>
+                           {signature.status}
+                         </span>
+                       </div>
+                       <p className="text-xs text-muted-foreground">{signature.signer_email}</p>
+                       <p className="text-xs text-muted-foreground">
+                         Page {signature.page_number} • Position ({Math.round(signature.x_position)}, {Math.round(signature.y_position)})
+                       </p>
+                       {signature.signed_at && (
+                         <p className="text-xs text-muted-foreground mt-1">
+                           Signed: {new Date(signature.signed_at).toLocaleDateString()}
+                         </p>
+                       )}
+                       {signature.status === 'pending' && (
+                         <Button
+                           size="sm"
+                           variant="outline"
+                           className="mt-2 w-full"
+                           onClick={() => generateSigningLink(signature)}
+                           disabled={loading}
+                         >
+                           <Send className="h-3 w-3 mr-1" />
+                           Generate Link
+                         </Button>
+                       )}
+                     </div>
+                   ))
+                 )}
 
                 {showAddSigner && (
                   <Card className="mt-4">
