@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Share, Plus, Eye, Download } from "lucide-react";
+import { PDFViewer } from "@/components/pdf/PDFViewer";
+import { SignatureField } from "@/components/pdf/SignatureField";
 
 interface Document {
   id: string;
@@ -25,6 +28,8 @@ interface Signature {
   x_position: number;
   y_position: number;
   page_number: number;
+  width: number;
+  height: number;
   signed_at: string | null;
 }
 
@@ -38,6 +43,8 @@ export function DocumentViewer({ document, onBack, onUpdate }: DocumentViewerPro
   const [signatures, setSignatures] = useState<Signature[]>([]);
   const [loading, setLoading] = useState(false);
   const [showAddSigner, setShowAddSigner] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [zoom, setZoom] = useState(1);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -78,9 +85,11 @@ export function DocumentViewer({ document, onBack, onUpdate }: DocumentViewerPro
           document_id: document.id,
           signer_email: signerEmail,
           signer_name: signerName,
-          x_position: 100, // Default position
+          x_position: 100,
           y_position: 100,
-          page_number: 1,
+          page_number: currentPage,
+          width: 150,
+          height: 50,
           status: 'pending'
         });
 
@@ -102,6 +111,55 @@ export function DocumentViewer({ document, onBack, onUpdate }: DocumentViewerPro
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleMoveSignature = async (signatureId: string, x: number, y: number) => {
+    try {
+      const { error } = await supabase
+        .from('signatures')
+        .update({ x_position: x, y_position: y })
+        .eq('id', signatureId);
+
+      if (error) throw error;
+
+      // Update local state
+      setSignatures(prev => 
+        prev.map(sig => 
+          sig.id === signatureId 
+            ? { ...sig, x_position: x, y_position: y }
+            : sig
+        )
+      );
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to update signature position",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteSignature = async (signatureId: string) => {
+    try {
+      const { error } = await supabase
+        .from('signatures')
+        .delete()
+        .eq('id', signatureId);
+
+      if (error) throw error;
+
+      setSignatures(prev => prev.filter(sig => sig.id !== signatureId));
+      toast({
+        title: "Success",
+        description: "Signature field removed",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to remove signature field",
+        variant: "destructive",
+      });
     }
   };
 
@@ -183,22 +241,38 @@ export function DocumentViewer({ document, onBack, onUpdate }: DocumentViewerPro
                   Document Preview
                 </CardTitle>
                 <CardDescription>
-                  PDF viewer and signature placement
+                  PDF viewer with signature field placement
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="bg-muted/20 rounded-lg p-8 text-center min-h-96">
-                  <div className="text-muted-foreground">
-                    <FileText className="h-16 w-16 mx-auto mb-4" />
-                    <p className="text-lg font-medium mb-2">PDF Preview</p>
-                    <p className="text-sm">
-                      PDF viewer will be integrated here using react-pdf
-                    </p>
-                    <Button onClick={downloadDocument} variant="outline" className="mt-4">
-                      <Download className="h-4 w-4 mr-2" />
-                      Download to View
-                    </Button>
-                  </div>
+                <div className="relative">
+                  <PDFViewer
+                    filePath={document.file_path}
+                    fileName={document.file_name}
+                    currentPage={currentPage}
+                    zoom={zoom}
+                    onPageChange={setCurrentPage}
+                    onZoomChange={setZoom}
+                  />
+                  
+                  {/* Signature Fields Overlay */}
+                  {signatures
+                    .filter(sig => sig.page_number === currentPage)
+                    .map(signature => (
+                      <SignatureField
+                        key={signature.id}
+                        id={signature.id}
+                        x={signature.x_position}
+                        y={signature.y_position}
+                        width={signature.width}
+                        height={signature.height}
+                        signerName={signature.signer_name}
+                        signerEmail={signature.signer_email}
+                        status={signature.status}
+                        onMove={handleMoveSignature}
+                        onDelete={handleDeleteSignature}
+                      />
+                    ))}
                 </div>
               </CardContent>
             </Card>
@@ -232,6 +306,9 @@ export function DocumentViewer({ document, onBack, onUpdate }: DocumentViewerPro
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground">{signature.signer_email}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Page {signature.page_number} • Position ({Math.round(signature.x_position)}, {Math.round(signature.y_position)})
+                      </p>
                       {signature.signed_at && (
                         <p className="text-xs text-muted-foreground mt-1">
                           Signed: {new Date(signature.signed_at).toLocaleDateString()}
@@ -315,6 +392,3 @@ export function DocumentViewer({ document, onBack, onUpdate }: DocumentViewerPro
     </div>
   );
 }
-
-// Add missing FileText import
-import { FileText } from "lucide-react";
